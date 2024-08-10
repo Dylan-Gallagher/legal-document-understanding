@@ -1,3 +1,3 @@
 # Legal Document Understanding
 
-A parser for EU Legal texts such as GDPR and DGA
+A parser for EU Legal texts such as The AI Act, GDPR and DGA
