@@ -6,15 +6,20 @@ from pyvis.network import Network
 class ArticleExtractor:
 
     def __init__(self, config={}):
+        if "ai_act" in config:
+            self.ai_act_path = config["ai_act"]
+        else:
+            self.ai_act_path = "../datasets/ai_act/ai_act.html" 
+
         if "gdpr_path" in config:
             self.gdpr_path = config["gdpr_path"]
         else:
-            self.gdpr_path = "../../datasets/gdpr/gdpr.html"
+            self.gdpr_path = "../datasets/gdpr/gdpr.html"
         
         if "dga_path" in config:
             self.dga_path = config["dga_path"]
         else:
-            self.dga_path = "../../datasets/dga/dga.html" 
+            self.dga_path = "../datasets/dga/dga.html" 
 
         if "extraction_method" in config:
             if config["extraction_method"] not in ["internal", "external"]:
@@ -28,7 +33,7 @@ class ArticleExtractor:
       
     def parse_legal_texts(self):
         '''
-        Parses the GDPR and DGA into a dictionary
+        Parses the AI Act, GDPR, and DGA into a dictionary
 
         Returns a dictionary of legal texts.
 
@@ -39,20 +44,59 @@ class ArticleExtractor:
             legal_texts["GDPR"]["Article 2"]["Point 3"] 
         '''
 
+        with open(self.ai_act_path, "r", encoding="utf-8") as f:
+            ai_act_soup = BeautifulSoup(f, "html.parser")
+
         with open(self.gdpr_path, "r", encoding="utf-8") as f:
             gdpr_soup = BeautifulSoup(f, "html.parser")
 
-
         with open(self.dga_path, "r", encoding="utf-8") as f:
-            dga_soup = BeautifulSoup(f, "html.parser")   
-
+            dga_soup = BeautifulSoup(f, "html.parser")
 
         legal_texts = {}
         
         pattern = re.compile(r'art_\d+(?!\.tit_1)$')
-        gdpr_articles = gdpr_soup.find_all("div", id=pattern)
+    
+
+        # AI Act
+        # Find all div elements with id matching the pattern xxx.xxx
+        ai_act_divs = ai_act_soup.find_all('div', id=re.compile(r'^\d{3}\.\d{3}$'))
+        ai_act_dict = {}
+        for div in ai_act_divs:
+            article_num, point_num = div['id'].split('.')
+            point_num = int(point_num)
+            article_num = int(article_num)
             
+            if f"Article {article_num}" not in ai_act_dict.keys():
+                ai_act_dict[f"Article {article_num}"] = {}
+
+            
+            # Check if the point has subpoints
+            subpoints = div.find_all('table')
+            
+            if subpoints:
+                main_text = div.find('p', class_='oj-normal').text.strip().split()[1:]
+                main_text = " ".join(main_text)
+                point_content = {
+                    "subpoints": {}
+                }
+                
+                for table in subpoints:
+                    subpoint_letter = table.find('p', class_='oj-normal').text.strip()
+                    subpoint_text = table.find_all('p', class_='oj-normal')[1].text.strip().split()[1:]
+                    subpoint_text = " ".join(subpoint_text)
+                    point_content["subpoints"][f"Subpoint {subpoint_letter}"] = main_text + subpoint_text
+                
+                ai_act_dict[f"Article {article_num}"][f"Point {point_num}"] = point_content
+            else:
+                point_text = div.find('p', class_='oj-normal').text.strip().split()[1:]
+                point_text = " ".join(point_text)
+                ai_act_dict[f"Article {article_num}"][f"Point {point_num}"] = point_text
+
+        legal_texts["AI Act"] = ai_act_dict
+                
         # GDPR
+        gdpr_articles = gdpr_soup.find_all("div", id=pattern)
         gdpr_dict = {}
         for article in gdpr_articles:
             article_dict = {}
@@ -216,16 +260,3 @@ class ArticleExtractor:
 
             # Save the visualization to a html file
             net.show("legal_document_relations.html")
-
-        
-        
-
-        
-
-        
-
-
-
-
-
-
