@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import re
 import networkx as nx
 from pyvis.network import Network
+import os
 
 class ArticleExtractor:
 
@@ -26,7 +27,7 @@ class ArticleExtractor:
                 raise ValueError("Invalid config.extraction_method. Must be 'internal' or 'external'.")
             self.extraction_method = config["extraction_method"]
         else:
-            self.extraction_method = "internal" # Default to internal extraction
+            self.extraction_method = "external" # Default to internal extraction
             
         self.legal_texts = None
 
@@ -197,27 +198,35 @@ class ArticleExtractor:
         self.references = references
         return references
 
-    def find_external_links_in_legal_text(self):
+    def find_external_links_in_legal_text(self, source_doc, target_doc):
         """
         Look for all mentions of GDPR (Regulation (EU) 2016/679) in the DGA
+        Look for all mentions of `target_doc` in the `source_doc`
         """
+
+        official_name = {
+            "GDPR": "Regulation (EU) 2016/679",
+            "DGA": "Regulation (EU) 2018/1724",
+            "AI Act": "Regulation(EU) 2024/1689",
+        }
+
         references = []
-        for article_name, article_dict in self.legal_texts["DGA"].items():
+        for article_name, article_dict in self.legal_texts[source_doc].items():
             for point_name, point_val in article_dict.items():
                 if type(point_val) is dict:
                     # It has subpoints
                     for subpoint_name, sentence in point_val.items():
-                        if "Regulation (EU) 2016/679" in sentence:
-                            references.append({"head": "DGA: " + article_name + ", " + point_name, "tail": "GDPR"})
+                        if official_name[target_doc] in sentence:
+                            references.append({"head": f"{source_doc}: " + article_name + ", " + point_name, "tail": target_doc})
                 else:
                     # It doesn't have subpoints
-                    if "Regulation (EU) 2016/679" in point_val:
-                        references.append({"head": "DGA: " + article_name + ", " + point_name, "tail": "GDPR"})
+                    if official_name[target_doc] in point_val:
+                        references.append({"head": f"{source_doc}: " + article_name + ", " + point_name, "tail": target_doc})
 
         self.references = references
         return references
 
-    def run(self, article_linking="internal", draw_graph=True):
+    def run(self, source_doc="DGA", target_doc="GDPR", draw_graph=True):
         """
         Run article extraction
 
@@ -238,7 +247,7 @@ class ArticleExtractor:
         if self.extraction_method == "internal":
             self.find_internal_links_in_legal_text()
         elif self.extraction_method == "external":
-            self.find_external_links_in_legal_text()
+            self.find_external_links_in_legal_text(source_doc, target_doc)
         
         if draw_graph:
             G = nx.DiGraph()
@@ -259,8 +268,11 @@ class ArticleExtractor:
             net.toggle_physics(True)
 
             # Save the visualization to a html file
-            net.show("legal_document_relations.html")
+            if not os.path.exists("templates"):
+                os.makedirs("templates")
+
+            net.save_graph("templates/legal_document_relations.html")
 
 if __name__ == "__main__":
-    article_extractor = ArticleExtractor()
+    article_extractor = ArticleExtractor({"extraction_method": "external"})
     article_extractor.run()
