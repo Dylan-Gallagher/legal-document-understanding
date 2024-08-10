@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Relations</title>
+</head>
+<body>
+    <h1>Article Relations</h1>
+    <form method="POST">
+        <label for="source">Source Article:</label>
+        <select name="source" id="source">
+            {% for article in articles %}
+            <option value="{{ article }}">{{ article }}</option>
+            {% endfor %}
+        </select>
+        
+        <label for="destination">Destination Article:</label>
+        <select name="destination" id="destination">
+            {% for article in articles %}
+            <option value="{{ article }}">{{ article }}</option>
+            {% endfor %}
+        </select>
+        
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>
