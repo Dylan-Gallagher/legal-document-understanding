@@ -260,3 +260,7 @@ class ArticleExtractor:
 
             # Save the visualization to a html file
             net.show("legal_document_relations.html")
+
+if __name__ == "__main__":
+    article_extractor = ArticleExtractor()
+    article_extractor.run()
