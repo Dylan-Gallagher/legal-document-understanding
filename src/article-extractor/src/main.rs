@@ -83,7 +83,6 @@ impl ArticleExtractor {
                 "DGA" => legal_text.dga.borrow(),
                 _ => legal_text.ai_act.borrow(), // default to ai act
             };
-            // TODO: Change `map.ai_act` to `map.<source>`
             for (article_name, article) in source_regulation.articles.iter() {
                 for (_point_name, point) in article.points.iter() {
                     match point {
