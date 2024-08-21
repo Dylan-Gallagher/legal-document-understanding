@@ -2,3 +2,4 @@ examples/notebooks/lib
 src/__pycache__
 src/templates/legal_document_relations.html
 src/lib
+**/target/
