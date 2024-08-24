@@ -8,7 +8,7 @@ use egui_graphs::{
 // use petgraph::adj::NodeIndex;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
 use petgraph::Directed;
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::{HashMap, HashSet};
 
 // /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -38,12 +38,16 @@ impl Default for LegalComplianceApp {
         //     "Updating graph with {:?}",
         //     &article_extractor.external_references
         // );
+        let source_article_content = "Article 23
+        4. For the purpose of testing in real world conditions under Article 60(2), freely-given informed consent shall be obtained from the subjects of testing prior to their participation in such testing and after their having been duly informed with concise, clear, relevant, and understandable information regarding:";
+        let target_article_content = "Article 61
+        2. Providers or prospective providers may conduct testing of high-risk AI systems referred to in Annex III in real world conditions at any time before the placing on the market or the putting into service of the AI system on their own or in partnership with one or more deployers or prospective deployers.";
         Self {
             g,
             source_doc,
             target_doc,
-            source_article_content: String::new(),
-            target_article_content: String::new(),
+            source_article_content: String::from(source_article_content),
+            target_article_content: String::from(target_article_content),
             edge_mapping: HashMap::new(),
             selected_edge: None,
             article_extractor,
@@ -64,6 +68,19 @@ impl LegalComplianceApp {
         // }
 
         Default::default()
+    }
+
+    fn lorem_ipsum(&mut self, ui: &mut egui::Ui) {
+        ui.with_layout(
+            egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+            |ui| {
+                ui.heading("Source Document");
+                ui.label(egui::RichText::new(self.source_article_content.to_owned()));
+                ui.add(egui::Separator::default().grow(8.0));
+                ui.heading("Target Document");
+                ui.label(egui::RichText::new(self.target_article_content.to_owned()));
+            },
+        );
     }
 
     pub fn update_graph(&mut self) {
@@ -145,18 +162,14 @@ impl eframe::App for LegalComplianceApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        // Read Data
-
+        // Update text when edge clicked
         if !self.g.selected_edges().is_empty() {
             let edge_idx = self.g.selected_edges().first().unwrap();
 
-            // TODO: Finish
-
-            // self.selected_edge = Some(*idx);
-            // self.label_input = self.g.edge(*idx).unwrap().label();
+            self.selected_edge = Some(*edge_idx);
+            let (head_node_index, tail_node_index) = self.g.edge_endpoints(*edge_idx).unwrap();
+            self.source_article_content = self.g.node(head_node_index).unwrap().label();
+            self.target_article_content = self.g.node(tail_node_index).unwrap().label();
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -237,7 +250,7 @@ impl eframe::App for LegalComplianceApp {
             .width_range(100.0..=400.0)
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    lorem_ipsum(ui);
+                    self.lorem_ipsum(ui);
                 });
             });
 
@@ -259,22 +272,6 @@ impl eframe::App for LegalComplianceApp {
             );
         });
     }
-}
-
-fn lorem_ipsum(ui: &mut egui::Ui) {
-    ui.with_layout(
-        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
-        |ui| {
-            ui.heading("Source Document");
-            ui.label(egui::RichText::new("Article 23
-4. For the purpose of testing in real world conditions under Article 60(2), freely-given informed consent shall be obtained from the subjects of testing prior to their participation in such testing and after their having been duly informed with concise, clear, relevant, and understandable information regarding:"));
-            ui.add(egui::Separator::default().grow(8.0));
-            ui.heading("Target Document");
-            ui.label(egui::RichText::new("Article 60
-2. Providers or prospective providers may conduct testing of high-risk AI systems referred to in Annex III in real world conditions at any time before the placing on the market or the putting into service of the AI system on their own or in partnership with one or more deployers or prospective deployers.
-"));
-        },
-    );
 }
 
 fn main() {
