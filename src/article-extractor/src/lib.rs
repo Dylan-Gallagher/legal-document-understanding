@@ -1,57 +1,75 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 
 #[derive(Debug)]
-struct Relation {
-    head: String,
-    tail: String,
+pub struct Relation {
+    pub head: String,
+    pub tail: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum LegalDocument {
+    AiAct,
+    GDPR,
+    DGA,
+}
+
+impl fmt::Display for LegalDocument {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LegalDocument::AiAct => write!(f, "AI Act"),
+            LegalDocument::GDPR => write!(f, "GDPR"),
+            LegalDocument::DGA => write!(f, "DGA"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct LegalTexts {
+pub struct LegalTexts {
     #[serde(rename = "AI Act")]
-    ai_act: Act,
+    pub ai_act: Act,
     #[serde(rename = "GDPR")]
-    gdpr: Act,
+    pub gdpr: Act,
     #[serde(rename = "DGA")]
-    dga: Act,
+    pub dga: Act,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Act {
+pub struct Act {
     #[serde(flatten)]
-    articles: HashMap<String, Article>,
+    pub articles: HashMap<String, Article>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Article {
+pub struct Article {
     #[serde(flatten)]
-    points: HashMap<String, PointValue>,
+    pub points: HashMap<String, PointValue>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-enum PointValue {
+pub enum PointValue {
     Sentence(String),
     Subpoints(HashMap<String, String>),
 }
 
-struct ArticleExtractor {
+pub struct ArticleExtractor {
     config: HashMap<String, String>,
     legal_texts: Option<LegalTexts>,
-    official_names: HashMap<&'static str, &'static str>,
-    external_references: Option<Vec<Relation>>,
+    official_names: HashMap<LegalDocument, &'static str>,
+    pub external_references: Option<Vec<Relation>>,
 }
 
 impl ArticleExtractor {
-    fn new(config: HashMap<String, String>) -> Self {
+    pub fn new(config: HashMap<String, String>) -> Self {
         let official_names = HashMap::from([
-            ("GDPR", "Regulation (EU) 2016/679"),
-            ("DGA", "Regulation (EU) 2018/1724"),
-            ("AI Act", "Regulation(EU) 2024/1689"),
+            (LegalDocument::GDPR, "Regulation (EU) 2016/679"),
+            (LegalDocument::DGA, "Regulation (EU) 2018/1724"),
+            (LegalDocument::AiAct, "Regulation(EU) 2024/1689"),
         ]);
 
         ArticleExtractor {
@@ -73,15 +91,14 @@ impl ArticleExtractor {
 
     fn find_internal_links(&self) {}
 
-    fn find_external_links(&mut self, source: &str, target: &str) {
+    fn find_external_links(&mut self, source: &LegalDocument, target: &LegalDocument) {
         let mut references: Vec<Relation> = Vec::new();
 
         if let Some(legal_text) = self.legal_texts.borrow() {
             let source_regulation = match source {
-                "AI Act" => legal_text.ai_act.borrow(),
-                "GDPR" => legal_text.gdpr.borrow(),
-                "DGA" => legal_text.dga.borrow(),
-                _ => legal_text.ai_act.borrow(), // default to ai act
+                LegalDocument::AiAct => legal_text.ai_act.borrow(),
+                LegalDocument::GDPR => legal_text.gdpr.borrow(),
+                LegalDocument::DGA => legal_text.dga.borrow(),
             };
             for (article_name, article) in source_regulation.articles.iter() {
                 for (_point_name, point) in article.points.iter() {
@@ -90,7 +107,7 @@ impl ArticleExtractor {
                             if sent.contains(self.official_names.get(target).unwrap()) {
                                 references.push(Relation {
                                     head: String::from(article_name),
-                                    tail: String::from(target),
+                                    tail: target.to_string(),
                                 })
                             }
                         }
@@ -99,7 +116,7 @@ impl ArticleExtractor {
                                 if subpoint.contains(self.official_names.get(target).unwrap()) {
                                     references.push(Relation {
                                         head: String::from(article_name),
-                                        tail: String::from(target),
+                                        tail: target.to_string(),
                                     })
                                 }
                             }
@@ -112,7 +129,7 @@ impl ArticleExtractor {
         self.external_references = Some(references);
     }
 
-    fn run(&mut self, source: &str, target: &str) {
+    pub fn run(&mut self, source: &LegalDocument, target: &LegalDocument) {
         self.parse_legal_texts();
         if self.config.get("extraction_method").unwrap() == "internal" {
             self.find_internal_links();
@@ -123,12 +140,12 @@ impl ArticleExtractor {
     }
 }
 
-fn main() {
-    // let test_str = String::from("As mentioned in Regulation (EU) 2016/679, it was very successful");
-    // let test_str_ref = &test_str;
+// fn main() {
+//     // let test_str = String::from("As mentioned in Regulation (EU) 2016/679, it was very successful");
+//     // let test_str_ref = &test_str;
 
-    let config = HashMap::from([(String::from("extraction_method"), String::from("external"))]);
-    let mut article_extractor = ArticleExtractor::new(config);
-    article_extractor.run("AI Act", "GDPR");
-    println!("{:#?}", article_extractor.external_references.unwrap());
-}
+//     let config = HashMap::from([(String::from("extraction_method"), String::from("external"))]);
+//     let mut article_extractor = ArticleExtractor::new(config);
+//     article_extractor.run("AI Act", "GDPR");
+//     println!("{:#?}", article_extractor.external_references.unwrap());
+// }
